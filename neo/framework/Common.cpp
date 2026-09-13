@@ -488,7 +488,7 @@ void idCommonLocal::DPrintf( const char *fmt, ... ) {
 	bool temp = com_refreshOnPrint;
 	com_refreshOnPrint = false;
 
-	Printf( S_COLOR_RED"%s", msg );
+	Printf( S_COLOR_RED "%s", msg );
 
 	com_refreshOnPrint = temp;
 }
@@ -513,7 +513,7 @@ void idCommonLocal::DWarning( const char *fmt, ... ) {
 	va_end( argptr );
 	msg[sizeof(msg)-1] = '\0';
 
-	Printf( S_COLOR_YELLOW"WARNING: %s\n", msg );
+	Printf( S_COLOR_YELLOW "WARNING: %s\n", msg );
 }
 
 /*

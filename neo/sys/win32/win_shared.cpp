@@ -40,6 +40,8 @@ If you have questions concerning this license or the applicable additional terms
 #include <conio.h>
 
 #ifndef	ID_DEDICATED
+#include <tchar.h>
+#include <atlbase.h>		// CComPtr/CComBSTR/CComVariant, previously dragged in via the MFC headers
 #include <comdef.h>
 #include <comutil.h>
 #include <Wbemidl.h>

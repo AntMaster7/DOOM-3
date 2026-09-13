@@ -51,6 +51,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #ifdef ID_DEBUG_UNINITIALIZED_MEMORY
 // This is real evil but allows the code to inspect arbitrary class variables.
+#define _ALLOW_KEYWORD_MACROS	// MSVC 2012+: permit macroizing keywords below
 #define private		public
 #define protected	public
 #endif
