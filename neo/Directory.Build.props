@@ -12,6 +12,13 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <!--
+        ID_ENFORCE_KEY=0: the retail CD-key check authenticates against id's
+        master servers, which no longer exist, so with enforcement on the
+        engine ignores startup +commands and blocks StartNewGame. Game assets
+        still have to be owned/installed; this only disables the dead check.
+      -->
+      <PreprocessorDefinitions>ID_ENFORCE_KEY=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
 </Project>
