@@ -117,10 +117,9 @@ const char *Sys_Cwd( void ) {
 	_getcwd( cwd, sizeof( cwd ) - 1 );
 	cwd[sizeof( cwd ) - 1] = 0;
 
-	int i = idStr::FindText( cwd, CD_BASEDIR, false );
-	if ( i >= 0 ) {
-		cwd[i + strlen( CD_BASEDIR )] = '\0';
-	}
+	// NOTE: id's original code truncated cwd after the first occurrence of
+	// CD_BASEDIR ("Doom") to match their internal disk layout; that mangles
+	// any checkout whose path contains "doom" (e.g. C:\Source\DOOM-3).
 
 	return cwd;
 }
@@ -269,15 +268,15 @@ int main( int argc, char** argv ) {
 	generator = new idTypeInfoGen;
 
 	if ( argc > 1 ) {
-		sourcePath = idStr( "../"SOURCE_CODE_BASE_FOLDER"/" ) + argv[1];
+		sourcePath = idStr( "../" SOURCE_CODE_BASE_FOLDER "/" ) + argv[1];
 	} else {
-		sourcePath = "../"SOURCE_CODE_BASE_FOLDER"/game";
+		sourcePath = "../" SOURCE_CODE_BASE_FOLDER "/game";
 	}
 
 	if ( argc > 2 ) {
-		fileName = idStr( "../"SOURCE_CODE_BASE_FOLDER"/" ) + argv[2];
+		fileName = idStr( "../" SOURCE_CODE_BASE_FOLDER "/" ) + argv[2];
 	} else {
-		fileName = "../"SOURCE_CODE_BASE_FOLDER"/game/gamesys/GameTypeInfo.h";
+		fileName = "../" SOURCE_CODE_BASE_FOLDER "/game/gamesys/GameTypeInfo.h";
 	}
 
 	if ( argc > 3 ) {
