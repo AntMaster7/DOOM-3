@@ -28,13 +28,16 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../idlib/precompiled.h"
 #pragma hdrstop
 
-// DirectX SDK
-#include <DxErr.h>
-
 #include <ks.h>
 #include <ksmedia.h>
 #include "../../sound/snd_local.h"
 #include "win_local.h"
+
+// DXTRACE_ERR came from the retired DirectX SDK's DxErr.h; keep the
+// pass-through-the-HRESULT semantics without the debug tracing.
+#ifndef DXTRACE_ERR
+#define DXTRACE_ERR( str, hr )	( hr )
+#endif
 
 #include "../../openal/idal.cpp"
 
