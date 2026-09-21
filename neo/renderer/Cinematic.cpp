@@ -54,7 +54,9 @@ public:
 	virtual void			ResetTime(int time);
 
 private:
-	unsigned int			mcomp[256];
+	int						mcomp[256];						// signed: a source block up / left of its target, and every block of an odd frame
+														// (normalBuffer0 = -screenDelta), has a NEGATIVE offset. Unsigned, it only
+														// worked where a pointer is 32 bits wide: on x64 it is zero-extended to +4 GB
 	byte **					qStatus[2];
 	idStr					fileName;
 	int						CIN_WIDTH, CIN_HEIGHT;
