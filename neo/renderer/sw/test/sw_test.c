@@ -481,6 +481,7 @@ static uint64_t test_depth_equal(void)
 #include "sw_test_kernels.h"
 #include "sw_test_bench.h"
 #include "sw_test_xform.h"
+#include "sw_test_sampler2.h"
 
 typedef uint64_t (*TestFn)(void);
 static const struct { const char *name; TestFn fn; } TESTS[] = {
@@ -488,7 +489,7 @@ static const struct { const char *name; TestFn fn; } TESTS[] = {
     { "volumes", test_volumes }, { "depth-equal", test_depth_equal },
     { "sampler", test_sampler }, { "blend", test_blend },
     { "perspective", test_perspective }, { "interaction", test_interaction },
-    { "cube", test_cube }, { "xform", test_xform },
+    { "cube", test_cube }, { "xform", test_xform }, { "sampler2", test_sampler2 },
 };
 #define NTESTS ((int)(sizeof(TESTS) / sizeof(TESTS[0])))
 
