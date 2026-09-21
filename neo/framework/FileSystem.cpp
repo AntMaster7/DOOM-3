@@ -3878,11 +3878,25 @@ void idFileSystemLocal::FindDLL( const char *name, char _dllPath[ MAX_OSPATH ], 
 #else
 	if ( !serverPaks.Num() ) {
 #endif
+#ifdef _WIN64
+		// a mod's game DLL next to the exe in a directory of the mod's name (build\x64\Release\d3xp\gamex64.dll):
+		// the x64 build keeps the expansion's DLL there instead of swapping it over the base game's
+		if ( fs_game.GetString()[0] ) {
+			dllPath = Sys_EXEPath( );
+			dllPath.StripFilename( );
+			dllPath.AppendPath( fs_game.GetString() );
+			dllPath.AppendPath( dllName );
+			dllFile = OpenExplicitFileRead( dllPath );
+		}
+		if ( !dllFile )
+#endif
+		{
 		// from executable directory first - this is handy for developement
 		dllPath = Sys_EXEPath( );
 		dllPath.StripFilename( );
 		dllPath.AppendPath( dllName );
 		dllFile = OpenExplicitFileRead( dllPath );
+		}
 	}
 	if ( !dllFile ) {
 		if ( !serverPaks.Num() ) {

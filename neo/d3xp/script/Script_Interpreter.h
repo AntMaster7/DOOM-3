@@ -61,6 +61,7 @@ private:
 	void				PopParms( int numParms );
 	void				PushString( const char *string );
 	void				Push( int value );
+	void				PushEntity( int entityNumber );
 	const char			*FloatToString( float value );
 	void				AppendString( idVarDef *def, const char *from );
 	void				SetString( idVarDef *def, const char *from );
@@ -141,6 +142,23 @@ ID_INLINE void idInterpreter::Push( int value ) {
 	}
 	*( int * )&localstack[ localstackUsed ]	= value;
 	localstackUsed += sizeof( int );
+}
+
+/*
+====================
+idInterpreter::PushEntity
+
+An entity or object parameter is an entity number in a slot of type_entity's size, which is
+sizeof( int * ): 4 bytes on x86, where a plain Push did, and 8 on x64, where it left the callee's
+parameter offsets and the pop count 4 bytes out per entity ("locals stack underflow").
+====================
+*/
+ID_INLINE void idInterpreter::PushEntity( int entityNumber ) {
+	if ( localstackUsed + sizeof( int * ) > LOCALSTACK_SIZE ) {
+		Error( "Push: locals stack overflow\n" );
+	}
+	*( intptr_t * )&localstack[ localstackUsed ] = entityNumber;
+	localstackUsed += sizeof( int * );
 }
 
 /*

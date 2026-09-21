@@ -144,7 +144,7 @@ def project_xml(name, guid, kind, files, headers, defines, includes, extra_items
 
 
 def main():
-    guids = {n: str(uuid.uuid5(uuid.NAMESPACE_URL, 'doom3-x64/' + n)).upper() for n in ('idlib-x64', 'game-x64', 'doom3-x64')}
+    guids = {n: str(uuid.uuid5(uuid.NAMESPACE_URL, 'doom3-x64/' + n)).upper() for n in ('idlib-x64', 'game-x64', 'game-d3xp-x64', 'doom3-x64')}
 
     # idlib
     files, headers = source_files('idlib.vcxproj')
@@ -161,6 +161,16 @@ def main():
     open(os.path.join(ROOT, 'game-x64.vcxproj'), 'w', encoding='utf-8', newline='\r\n').write(
         project_xml('game-x64', guids['game-x64'], 'dll', files, headers, '__DOOM__;GAME_DLL', '', link=link))
     print('game-x64:', len(files), 'files')
+
+    # Resurrection of Evil: the same game code tree under d3xp, its DLL in a directory of its own
+    # (FindDLL looks in <exe dir>/<fs_game>/ first on x64)
+    files, headers = source_files('game-d3xp.vcxproj')
+    link = ('      <OutputFile>$(OutDir)d3xp\\gamex64.dll</OutputFile>\n'
+            '      <ModuleDefinitionFile>.\\d3xp\\game.def</ModuleDefinitionFile>\n'
+            '      <AdditionalDependencies>$(OutDir)idlib-x64.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
+    open(os.path.join(ROOT, 'game-d3xp-x64.vcxproj'), 'w', encoding='utf-8', newline='\r\n').write(
+        project_xml('game-d3xp-x64', guids['game-d3xp-x64'], 'dll', files, headers, '__DOOM__;GAME_DLL;_D3XP;CTF', '', link=link))
+    print('game-d3xp-x64:', len(files), 'files')
 
     # engine
     files, headers = source_files('doomdll.vcxproj')
@@ -213,8 +223,8 @@ def main():
     # solution
     vc = '8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942'
     lines = ['', 'Microsoft Visual Studio Solution File, Format Version 12.00', '# Visual Studio Version 17']
-    deps = {'idlib-x64': [], 'game-x64': ['idlib-x64'], 'doom3-x64': ['idlib-x64']}
-    for n in ('idlib-x64', 'game-x64', 'doom3-x64'):
+    deps = {'idlib-x64': [], 'game-x64': ['idlib-x64'], 'game-d3xp-x64': ['idlib-x64'], 'doom3-x64': ['idlib-x64']}
+    for n in ('idlib-x64', 'game-x64', 'game-d3xp-x64', 'doom3-x64'):
         lines.append(f'Project("{{{vc}}}") = "{n}", "{n}.vcxproj", "{{{guids[n]}}}"')
         if deps[n]:
             lines.append('\tProjectSection(ProjectDependencies) = postProject')
