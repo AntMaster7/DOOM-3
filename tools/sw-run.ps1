@@ -58,7 +58,10 @@ $settings = @(
     'image_anisotropy 1', 'image_preload 1', 'image_useCache 0', 'image_filter GL_LINEAR_MIPMAP_NEAREST',
     'image_usePrecompressedTextures 0', 'image_useCompression 0', 'image_useNormalCompression 0',
     # ARCHIVED debug cvars: an -Extra of one run lives on in DoomConfig.cfg otherwise
-    'r_shadows 1', 'r_skipBump 0', 'r_skipSpecular 0', 'r_skipDiffuse 0'
+    'r_shadows 1', 'r_skipBump 0', 'r_skipSpecular 0', 'r_skipDiffuse 0',
+    # archived too, and r_mode -1 never resets it: one run at a 16:9 mode of the table (r_mode 9 - 12
+    # sets it to 1) would change the field of view, i.e. every frame of the gate, from then on
+    'r_aspectRatio 0'
 )
 [System.IO.File]::WriteAllText((Join-Path $savePath 'base\autoexec.cfg'), (($settings | ForEach-Object { "seta $_" }) -join "`r`n") + "`r`n")
 
