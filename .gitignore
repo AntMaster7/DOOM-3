@@ -1,3 +1,7 @@
 build
 neo/game/gamesys/GameTypeInfo.h
 neo/d3xp/gamesys/GameTypeInfo.h
+
+# the rasterizer harness writes its images into the working directory without --out
+/sw_*.tga
+__pycache__/
