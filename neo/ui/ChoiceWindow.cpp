@@ -348,6 +348,42 @@ void idChoiceWindow::UpdateChoicesAndVals( void ) {
 		}
 		latchedVals = choiceVals.c_str();
 	}
+	// a list parsed again has lost them
+	AppendEngineVidModes();
+}
+
+/*
+============
+idChoiceWindow::AppendEngineVidModes
+
+The resolutions of the menu are a string in the game's mainmenu.gui ( values 3 .. 8 ), which is
+not ours to edit. So the choice bound to r_mode gets, behind the gui's own entries, every mode of
+the renderer's table above the highest one the gui lists: whatever gui file it is ( four
+revisions in the paks, the expansion's ), and whatever the table grows to.
+Found by the resolved cvar, never by cvarStr: that holds the NAME only until UpdateVars puts the
+VALUE into it. Safe to call again: a mode already in the list is above nothing.
+============
+*/
+bool R_GetModeInfo( int *width, int *height, int mode );
+
+void idChoiceWindow::AppendEngineVidModes( void ) {
+	if ( !cvar || choiceType != 1 || idStr::Icmp( cvar->GetName(), "r_mode" ) != 0 ) {
+		return;
+	}
+	if ( !values.Num() || values.Num() != choices.Num() ) {
+		return;
+	}
+	int i, width, height;
+	int highest = -1;
+	for ( i = 0; i < values.Num(); i++ ) {
+		if ( atoi( values[i] ) > highest ) {
+			highest = atoi( values[i] );
+		}
+	}
+	for ( i = highest + 1; R_GetModeInfo( &width, &height, i ); i++ ) {
+		choices.Append( va( "%ix%i", width, height ) );
+		values.Append( va( "%i", i ) );
+	}
 }
 
 void idChoiceWindow::PostParse() {
@@ -355,6 +391,8 @@ void idChoiceWindow::PostParse() {
 	UpdateChoicesAndVals();
 
 	InitVars();
+	// the first UpdateChoicesAndVals ran before the cvar was known
+	AppendEngineVidModes();
 	UpdateChoice();
 	UpdateVars(false);
 

@@ -53,6 +53,7 @@ idCVar r_displayRefresh( "r_displayRefresh", "0", CVAR_RENDERER | CVAR_INTEGER |
 idCVar r_fullscreen( "r_fullscreen", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "0 = windowed, 1 = full screen" );
 idCVar r_customWidth( "r_customWidth", "720", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "custom screen width. set r_mode to -1 to activate" );
 idCVar r_customHeight( "r_customHeight", "486", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "custom screen height. set r_mode to -1 to activate" );
+idCVar r_autoAspectRatio( "r_autoAspectRatio", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "a mode of the r_mode table sets r_aspectRatio from its shape. r_mode -1 never does" );
 idCVar r_singleTriangle( "r_singleTriangle", "0", CVAR_RENDERER | CVAR_BOOL, "only draw a single triangle per primitive" );
 idCVar r_checkBounds( "r_checkBounds", "0", CVAR_RENDERER | CVAR_BOOL, "compare all surface bounds with precalculated ones" );
 
@@ -563,14 +564,63 @@ vidmode_t r_vidModes[] = {
     { "Mode  6: 1152x864",		1152,	864 },
     { "Mode  7: 1280x1024",		1280,	1024 },
     { "Mode  8: 1600x1200",		1600,	1200 },
+	// 16:9, appended so that an r_mode in an existing config keeps its meaning. The menu lists
+	// them without a change to the game's mainmenu.gui: idChoiceWindow::AppendEngineVidModes
+    { "Mode  9: 1280x720",		1280,	720 },
+    { "Mode 10: 1920x1080",		1920,	1080 },
+    { "Mode 11: 2560x1440",		2560,	1440 },
+    { "Mode 12: 3840x2160",		3840,	2160 },
 };
 static int	s_numVidModes = ( sizeof( r_vidModes ) / sizeof( r_vidModes[0] ) );
 
-#if MACOS_X
+/*
+====================
+R_AspectRatioForSize
+
+The value of the game's r_aspectRatio ( 0 = 4:3, 1 = 16:9, 2 = 16:10 ) for a resolution. The game
+knows these three only: it derives the vertical field of view from them, so a wrong answer shows
+as a picture stretched or squeezed horizontally.
+
+TODO(user): the policy is yours. The placeholder is the thresholds of id's own Mac preferences
+dialog (sys/osx/PreferencesDialog.cpp). What it decides without saying so: 5:4 (1280x1024, in
+the original menu) counts as 4:3; anything wider than 16:9 (21:9 = 2.39) is 16:9, i.e. squeezed;
+the 16:9 / 16:10 boundary at 1.7 sits much closer to 16:9 (1.778) than to 16:10 (1.6).
+====================
+*/
+static int R_AspectRatioForSize( int width, int height ) {
+	float r = (float)width / (float)height;
+	if ( r > 1.7f ) {
+		return 1;	// 16:9
+	}
+	if ( r > 1.55f ) {
+		return 2;	// 16:10
+	}
+	return 0;		// 4:3
+}
+
+/*
+====================
+R_SetAspectRatioForMode
+
+r_aspectRatio belongs to the game DLL, which may not be loaded yet: by name. A custom size
+( r_mode -1 ) is left alone: whoever sets one sets the aspect ratio too, and every scripted run
+( gates, benches ) is of that kind and must keep rendering what it rendered.
+====================
+*/
+static void R_SetAspectRatioForMode( void ) {
+	if ( !r_autoAspectRatio.GetBool() || r_mode.GetInteger() < 0 || r_mode.GetInteger() >= s_numVidModes ) {
+		return;
+	}
+	const vidmode_t *vm = &r_vidModes[ r_mode.GetInteger() ];
+	int aspect = R_AspectRatioForSize( vm->width, vm->height );
+	if ( cvarSystem->GetCVarInteger( "r_aspectRatio" ) != aspect ) {
+		common->Printf( "r_mode %i is %ix%i: r_aspectRatio %i\n", r_mode.GetInteger(), vm->width, vm->height, aspect );
+		cvarSystem->SetCVarInteger( "r_aspectRatio", aspect );
+	}
+}
+
+// not static: the Mac preferences dialog and the menu's resolution list ( ui/ChoiceWindow.cpp ) read the table
 bool R_GetModeInfo( int *width, int *height, int mode ) {
-#else
-static bool R_GetModeInfo( int *width, int *height, int mode ) {
-#endif
 	vidmode_t	*vm;
 
     if ( mode < -1 ) {
@@ -660,6 +710,9 @@ void R_InitOpenGL( void ) {
 		r_displayRefresh.SetInteger( 0 );
 		r_multiSamples.SetInteger( 0 );
 	}
+
+	// after the loop: the safe-mode retry may have changed r_mode
+	R_SetAspectRatioForMode();
 
 #ifdef ID_SW_RENDERER
 	// the window exists at its full size; from here on the engine renders to the scaled one

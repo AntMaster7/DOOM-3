@@ -60,7 +60,9 @@ private:
 	void				UpdateVars( bool read, bool force = false );
 
 	void				UpdateChoicesAndVals( void );
-	
+						// the r_mode choice lists the engine's video modes beyond the gui's own
+	void				AppendEngineVidModes( void );
+
 	int					currentChoice;
 	int					choiceType;
 	idStr				latchedChoices;
