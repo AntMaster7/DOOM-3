@@ -102,12 +102,14 @@ typedef struct TexLevel { VI mip, iw, iwm1, ihm1, off; VF fw, fh; const SwImage 
 /* win: the block's texels lie in a WINDOW of 16 columns by 5 rows of one level (tex_window): five row
    loads and permutes fetch them instead of four gathers. rowBase = the texel index of each window
    row's first column; sel0 / sel1 = (row << 4 | column) of a lane's upper and lower left texel. */
-typedef struct TexCoords { VI idx0, idx1, idx0w, idx1w, fx, fy; __mmask16 xw;
-                           int win; int rowBase[5]; VI sel0, sel1; } TexCoords;
+typedef struct TexCoords1 { VI idx0, idx1, idx0w, idx1w, fx, fy; __mmask16 xw;
+                           int win; int rowBase[5]; VI sel0, sel1; } TexCoords1;
 
 /* SW_OPT_TEX_WINDOW as the running tile pass sees it. A line of its own: it is read per lookup by
    every thread, and nothing written while the pool runs may share a line with that. */
 static __declspec(align(64)) int g_texWindow = 1;
+static __declspec(align(64)) int g_envHelpers = 1;          /* SW_OPT_ENV_HELPERS: k_env, see there */
+static __declspec(align(64)) int g_texTrilinear = 0;        /* SW_OPT_TRILINEAR: GL_LINEAR_MIPMAP_LINEAR instead of .._NEAREST */
 static __declspec(align(64)) int g_texLevel0 = 1;           /* SW_OPT_TEX_LEVEL0, the same way */
 static __declspec(align(64)) int g_texWindowPadEnd;
 #if SW_ORACLES
@@ -158,7 +160,7 @@ static __forceinline void tex_level(const SwImage *tx, VI lvl, const int level0,
    pair gather's own rule: what lies behind a row's last texel has weight 0); rows within 4 for
    the upper texel and 5 for the lower one, which makes a wrapped row (repeat) fail unless it
    really is in the window; no lane whose right texel wraps to column 0 (xw). */
-static __forceinline void tex_window(const TexLevel *L, VI x0, VI y0, VI y1, __mmask16 m, TexCoords *tc)
+static __forceinline void tex_window(const TexLevel *L, VI x0, VI y0, VI y1, __mmask16 m, TexCoords1 *tc)
 {
     tc->win = 0;
 #if SW_ORACLES
@@ -200,7 +202,7 @@ static __forceinline void tex_window(const TexLevel *L, VI x0, VI y0, VI y1, __m
 }
 
 /* (u, v) on a looked-up level. `wrap` is a constant at the call site. */
-static __forceinline void tex_coords_at(const TexLevel *L, VF u, VF v, __mmask16 m, const int wrap, TexCoords *tc)
+static __forceinline void tex_coords_at(const TexLevel *L, VF u, VF v, __mmask16 m, const int wrap, TexCoords1 *tc)
 {
     const VI zero = _mm512_setzero_si512(), onei = _mm512_set1_epi32(1);
     const VF half = _mm512_set1_ps(0.5f), fzero = _mm512_setzero_ps();
@@ -274,7 +276,7 @@ static __forceinline VI tex_weight16(VI w)      /* a 0..256 weight as a mulhi mu
 }
 /* an 8.8 field rounded to its 8-bit code, both fields of a dword at once */
 static __forceinline VI tex_round8(VI x) { return _mm512_srli_epi16(_mm512_add_epi16(x, _mm512_set1_epi16(128)), 8); }
-static __forceinline void tex_fetch16(const uint32_t *texels, const TexCoords *tc, __mmask16 m, VI *lfin, VI *hfin)
+static __forceinline void tex_fetch16_1(const uint32_t *texels, const TexCoords1 *tc, __mmask16 m, VI *lfin, VI *hfin)
 {
     const VI zero = _mm512_setzero_si512();
     const VI evens = _mm512_setr_epi32(0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30);
@@ -377,7 +379,9 @@ blend:;
 /* A coordinate set is numerator planes over a denominator plane: (u/w, v/w) over 1/w for a
    texture coordinate, (s/w, t/w) over q/w for a projective one: the w cancels. This evaluates
    the quotient and, by the quotient rule, the level: d(u)/dx = (ugx - u * dgx) / den. */
-typedef struct TexSet { VF u, v; VI level; int level0; } TexSet;   /* level0: every lane reads level 0, proven */
+/* level0: every lane reads level 0, proven. two: trilinear, and some lane sits between `level` and the next one
+   by frac (0..256); then the lookup reads both levels. */
+typedef struct TexSet { VF u, v; VI level; int level0; int two; VI frac; } TexSet;
 static __forceinline void tex_set_rule(const SwImage *tx, VF un, VF vn, VF rden,
                                        VF ugx, VF ugy, VF vgx, VF vgy, VF dgx, VF dgy, TexSet *o, const int exactLevel)
 {
@@ -409,11 +413,13 @@ static __forceinline void tex_set_rule(const SwImage *tx, VF un, VF vn, VF rden,
        pixel, all smoke, the light's own textures. */
     o->level0 = 0;
     if (g_texLevel0) {
+        /* trilinear reads level 0 ALONE only while the footprint is at most one texel: rho^2 <= 1 */
 #if SW_LOD_RULE == 2
-        const float bound = exactLevel ? 0.99f : 2.0f;
+        const float bound = g_texTrilinear ? (exactLevel ? 0.49f : 1.0f) : (exactLevel ? 0.99f : 2.0f);
 #else
-        const float bound = exactLevel ? 1.99f : 2.0f;
+        const float bound = g_texTrilinear ? (exactLevel ? 0.99f : 1.0f) : (exactLevel ? 1.99f : 2.0f);
 #endif
+        o->two = 0;
         if (tx->nmips <= 1 || _mm512_cmp_ps_mask(exactLevel ? _mm512_add_ps(px2, py2) : _mm512_max_ps(px2, py2),
                                                  _mm512_set1_ps(bound), _CMP_LT_OQ) == 0xFFFF) {
             o->level = _mm512_setzero_si512(); o->level0 = 1;
@@ -437,7 +443,54 @@ static __forceinline void tex_set_rule(const SwImage *tx, VF un, VF vn, VF rden,
     rho2 = _mm512_max_ps(px2, py2);
 #endif
     }
+    o->two = 0;
+    if (g_texTrilinear && tx->nmips > 1) {
+        /* GL_LINEAR_MIPMAP_LINEAR: lambda = log2(rho) = log2(rho^2) / 2, levels floor(lambda) and the next one, blended
+           by the fraction; at or below 0 it is level 0 alone (the magnification filter), at the last level that
+           one alone. log2 = the exponent + a cubic of the mantissa (worst error 0.13 / 256 of a level: a GPU keeps
+           the fraction in 8 bits or fewer). */
+        const VF r2 = _mm512_max_ps(rho2, _mm512_set1_ps(1e-12f));
+        const VF x = _mm512_sub_ps(_mm512_getmant_ps(r2, _MM_MANT_NORM_1_2, _MM_MANT_SIGN_zero), _mm512_set1_ps(1.0f));
+        const VF l2m = _mm512_mul_ps(x, _mm512_fmadd_ps(x, _mm512_fmadd_ps(x, _mm512_set1_ps(0.1563861f), _mm512_set1_ps(-0.5772507f)), _mm512_set1_ps(1.4208645f)));
+        VF lam = _mm512_mul_ps(_mm512_set1_ps(0.5f), _mm512_add_ps(_mm512_getexp_ps(r2), l2m));
+        lam = _mm512_min_ps(_mm512_max_ps(lam, _mm512_setzero_ps()), _mm512_set1_ps((float)(tx->nmips - 1)));
+        const VF base = _mm512_floor_ps(lam);
+        o->level = _mm512_cvttps_epi32(base);
+        o->frac = _mm512_cvtps_epi32(_mm512_mul_ps(_mm512_sub_ps(lam, base), _mm512_set1_ps(256.0f)));
+        o->two = _mm512_test_epi32_mask(o->frac, o->frac) != 0;
+        return;
+    }
     o->level = tx->nmips > 1 ? tex_level_from_rho2(rho2) : _mm512_setzero_si512();
+}
+
+/* ---- the two-level front: what the kernels use ---- */
+typedef struct TexCoords { TexCoords1 a, b; int two; VI w0, w1; } TexCoords;
+
+static __forceinline void tex_coords(const SwImage *tx, const TexSet *s, __mmask16 m, TexCoords *tc)
+{
+    TexLevel L;
+    tex_level(tx, s->level, s->level0, &L);
+    if (tx->wrap == SW_WRAP_REPEAT) tex_coords_at(&L, s->u, s->v, m, SW_WRAP_REPEAT, &tc->a);
+    else tex_coords_at(&L, s->u, s->v, m, SW_WRAP_CLAMP, &tc->a);
+    tc->two = s->two;
+    if (s->two) {
+        tex_level(tx, _mm512_add_epi32(s->level, _mm512_set1_epi32(1)), 0, &L);     /* past the chain it clamps to the last level, where frac is 0 */
+        if (tx->wrap == SW_WRAP_REPEAT) tex_coords_at(&L, s->u, s->v, m, SW_WRAP_REPEAT, &tc->b);
+        else tex_coords_at(&L, s->u, s->v, m, SW_WRAP_CLAMP, &tc->b);
+        tc->w0 = tex_weight16(_mm512_sub_epi32(_mm512_set1_epi32(256), s->frac));
+        tc->w1 = tex_weight16(s->frac);
+    }
+}
+
+static __forceinline void tex_fetch16(const uint32_t *texels, const TexCoords *tc, __mmask16 m, VI *lfin, VI *hfin)
+{
+    tex_fetch16_1(texels, &tc->a, m, lfin, hfin);
+    if (tc->two) {
+        VI l1, h1;
+        tex_fetch16_1(texels, &tc->b, m, &l1, &h1);
+        *lfin = _mm512_add_epi16(_mm512_mulhi_epu16(*lfin, tc->w0), _mm512_mulhi_epu16(l1, tc->w1));
+        *hfin = _mm512_add_epi16(_mm512_mulhi_epu16(*hfin, tc->w0), _mm512_mulhi_epu16(h1, tc->w1));
+    }
 }
 
 /* a surface map: the level the GPU would pick, exactly. The rule costs 3.4% of a 4K frame when every
@@ -459,10 +512,8 @@ static __forceinline void tex_set_smooth(const SwImage *tx, VF un, VF vn, VF rde
 /* one bilinear sample of an image at a coordinate set; the wrap branch is per call, not per lane */
 static __forceinline void tex_sample16(const SwImage *tx, const TexSet *s, __mmask16 m, VI *lo, VI *hi)
 {
-    TexLevel L; TexCoords tc;
-    tex_level(tx, s->level, s->level0, &L);
-    if (tx->wrap == SW_WRAP_REPEAT) tex_coords_at(&L, s->u, s->v, m, SW_WRAP_REPEAT, &tc);
-    else tex_coords_at(&L, s->u, s->v, m, SW_WRAP_CLAMP, &tc);
+    TexCoords tc;
+    tex_coords(tx, s, m, &tc);
     tex_fetch16(tx->texels, &tc, m, lo, hi);
 }
 
@@ -517,11 +568,11 @@ static __forceinline void tex_cube_sample16(const SwImage *tx, VF rx, VF ry, VF 
     } else
         ts.level = _mm512_setzero_si512();
 
-    TexLevel L; TexCoords c;
+    TexLevel L; TexCoords1 c;
     tex_level(tx, ts.level, 0, &L);
     tex_coords_at(&L, ts.u, ts.v, m, SW_WRAP_CLAMP, &c);
     const VI fbase = _mm512_mullo_epi32(face, _mm512_set1_epi32(tx->faceTexels));
     c.idx0 = _mm512_add_epi32(c.idx0, fbase); c.idx1 = _mm512_add_epi32(c.idx1, fbase);
     c.win = 0;                                              /* the lanes may sit in different faces: the window knows one chain */
-    tex_fetch16(tx->texels, &c, m, lo, hi);
+    tex_fetch16_1(tx->texels, &c, m, lo, hi);
 }

@@ -16,6 +16,8 @@ bool		SW_Active( void );			// the software back end exists (images must feed it)
 // r_swRenderer 2: no OpenGL at all. Valid before SW_Init (the window is created first): no WGL
 // context, every qgl pointer a counted no-op (win_qgl.cpp), the frame presented natively.
 bool		SW_GLFree( void );
+// r_swRenderScale: the render size for a window of this size (unchanged unless r_swRenderer 2 and a scale below 1)
+void		SW_ApplyRenderScale( int *width, int *height );
 bool		SW_Presenting( void );		// ...and what is on screen this frame comes from it
 void		SW_ExecuteBackEndCommands( const emptyCommand_t *cmds );
 void		SW_RunFrame( const emptyCommand_t *cmds );	// what R_IssueRenderCommands calls: software, GL or both (r_swCompare)

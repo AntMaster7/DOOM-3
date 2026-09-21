@@ -26,6 +26,9 @@ idCVar r_swHier( "r_swHier", "1", CVAR_RENDERER | CVAR_BOOL, "rasterizer: hierar
 idCVar r_swZrange( "r_swZrange", "1", CVAR_RENDERER | CVAR_BOOL, "rasterizer: reject triangles and cells against the tile's stored z ranges (exact)" );
 idCVar r_swCellFast( "r_swCellFast", "1", CVAR_RENDERER | CVAR_BOOL, "rasterizer: settle whole 16x16 cells of a shadow volume without a block walk (exact)" );
 idCVar r_swLightCells( "r_swLightCells", "1", CVAR_RENDERER | CVAR_BOOL, "rasterizer: skip 16x16 cells proven outside a light's volume (exact)" );
+idCVar r_swRenderScale( "r_swRenderScale", "1", CVAR_RENDERER | CVAR_FLOAT, "with r_swRenderer 2: render at this multiple of the window's width and height (0.25 - 2) and let the presenter scale the frame to the window. Below 1 = fewer pixels to render; 2 = four samples per window pixel, averaged: anti-aliasing for a window that leaves the time for it. Read at start-up and at vid_restart", 0.25f, 2.0f );
+idCVar r_swTrilinear( "r_swTrilinear", "-1", CVAR_RENDERER | CVAR_INTEGER, "mip filtering of the software renderer: -1 = as image_filter says (GL_LINEAR_MIPMAP_LINEAR is trilinear, DOOM 3's default), 0 = nearest level, 1 = trilinear", -1, 1 );
+idCVar r_swEnvHelpers( "r_swEnvHelpers", "1", CVAR_RENDERER | CVAR_BOOL, "bumpyEnvironment: fetch the normal map for the lanes outside a block's coverage too; the cube map's level is taken from differences between neighbouring lanes, as a GPU takes it from helper pixels" );
 idCVar r_swTexLevel0( "r_swTexLevel0", "1", CVAR_RENDERER | CVAR_BOOL, "sampler: a 4x4 block whose footprint proves mip level 0 for every lane skips the level rule and the per-lane level tables (exact)" );
 idCVar r_swTexWindow( "r_swTexWindow", "1", CVAR_RENDERER | CVAR_INTEGER, "sampler: a 4x4 block whose texels lie in a 16 x 5 texel window fetches them with five row loads instead of four gathers (exact)" );
 idCVar r_swBinExact( "r_swBinExact", "1", CVAR_RENDERER | CVAR_BOOL, "rasterizer: a triangle is binned only into the tiles it can cover, not into every tile of its bounding box (exact)" );
@@ -180,6 +183,27 @@ bool SW_Active( void ) {
 
 bool SW_GLFree( void ) {
 	return r_swRenderer.GetInteger() == 2;
+}
+
+/*
+================
+SW_ApplyRenderScale
+
+The three places that set glConfig.vidWidth / vidHeight from the WINDOW call this: the engine renders to
+what comes out, the window keeps its size, and the presenter's swap chain, made at the render size, is
+stretched to it. Even sizes; never below 64.
+================
+*/
+void SW_ApplyRenderScale( int *width, int *height ) {
+	if ( !SW_GLFree() ) {
+		return;
+	}
+	const float scale = idMath::ClampFloat( 0.25f, 2.0f, r_swRenderScale.GetFloat() );
+	if ( scale == 1.0f ) {
+		return;
+	}
+	*width = Max( 64, (int)( (float)*width * scale + 0.5f ) & ~1 );
+	*height = Max( 64, (int)( (float)*height * scale + 0.5f ) & ~1 );
 }
 
 bool SW_Presenting( void ) {
@@ -461,6 +485,8 @@ void SW_ExecuteBackEndCommands( const emptyCommand_t *cmds ) {
 	sw_set_option( SW_OPT_BIN_EXACT, r_swBinExact.GetBool() );
 	sw_set_option( SW_OPT_TEX_WINDOW, r_swTexWindow.GetInteger() );
 	sw_set_option( SW_OPT_TEX_LEVEL0, r_swTexLevel0.GetBool() );
+	sw_set_option( SW_OPT_ENV_HELPERS, r_swEnvHelpers.GetBool() );
+	sw_set_option( SW_OPT_TRILINEAR, r_swTrilinear.GetInteger() < 0 ? ( idStr::Icmp( globalImages->image_filter.GetString(), "GL_LINEAR_MIPMAP_LINEAR" ) == 0 ) : r_swTrilinear.GetInteger() );
 	// the core's "exact" rejects, each with its kill switch: an image that changes with one of them is a bug in it
 	sw_set_option( SW_OPT_HIER, r_swHier.GetBool() );
 	sw_set_option( SW_OPT_ZRANGE, r_swZrange.GetBool() );

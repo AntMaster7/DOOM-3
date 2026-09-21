@@ -483,6 +483,14 @@ static void SWN_PresentGDI( const uint32_t *pixels ) {
 	bi.masks[1] = 0x0000FF00;
 	bi.masks[2] = 0x00FF0000;
 	HDC dc = GetDC( swn.hwnd );
+	RECT client;
+	if ( GetClientRect( swn.hwnd, &client ) && ( client.right != swn.width || client.bottom != swn.height ) ) {
+		// a render scale: the swap chain's stretch does not exist here
+		SetStretchBltMode( dc, COLORONCOLOR );
+		StretchDIBits( dc, 0, 0, client.right, client.bottom, 0, 0, swn.width, swn.height, pixels, (const BITMAPINFO *)&bi, DIB_RGB_COLORS, SRCCOPY );
+		ReleaseDC( swn.hwnd, dc );
+		return;
+	}
 	SetDIBitsToDevice( dc, 0, 0, (DWORD)swn.width, (DWORD)swn.height, 0, 0, 0, (UINT)swn.height, pixels, (const BITMAPINFO *)&bi, DIB_RGB_COLORS );
 	ReleaseDC( swn.hwnd, dc );
 }

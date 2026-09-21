@@ -85,7 +85,11 @@ static KERNEL_CALL(__mmask16) k_env(const SwTriAttr *a, const SwEnvParms *p, __m
         tex_set(p->bump, PLANE(a, VE_U, X, Y), PLANE(a, VE_V, X, Y), rw,
                 GRAD(a, VE_U, 1), GRAD(a, VE_U, 2), GRAD(a, VE_V, 1), GRAD(a, VE_V, 2),
                 _mm512_set1_ps(a->w[1]), _mm512_set1_ps(a->w[2]), &bs);
-        tex_sample16(p->bump, &bs, m, &lo, &hi);
+        /* The cube lookup below takes its level from differences between NEIGHBOURING lanes, in the mask or not (a GPU's
+           helper pixels). A masked fetch hands those lanes a zero texel, i.e. the normal (-1, -1, -1): every block on
+           a silhouette then reads a coarser cube level than its surface asks for. g_envHelpers fetches the normal map
+           for all sixteen lanes (their coordinates are clamped into the map like any other's). */
+        tex_sample16(p->bump, &bs, g_envHelpers ? (__mmask16)0xFFFF : m, &lo, &hi);
         const VF two255 = _mm512_set1_ps(2.0f / (255.0f * 256.0f));
         VF lx = _mm512_fmsub_ps(field_hi(hi), two255, one);        /* x from ALPHA */
         VF ly = _mm512_fmsub_ps(field_lo(hi), two255, one);
@@ -169,7 +173,7 @@ static KERNEL_CALL(__mmask16) k_screen(const SwTriAttr *a, const SwScreenParms *
         v = _mm512_fnmadd_ps(ny, _mm512_mul_ps(PLANE(a, VH_DEFORM_Y, X, Y), rw), v);
         u = _mm512_min_ps(_mm512_max_ps(u, zero), one); v = _mm512_min_ps(_mm512_max_ps(v, zero), one);
     }
-    TexSet cs; cs.u = u; cs.v = v; cs.level = _mm512_setzero_si512(); cs.level0 = g_texLevel0;
+    TexSet cs; cs.u = u; cs.v = v; cs.level = _mm512_setzero_si512(); cs.level0 = g_texLevel0; cs.two = 0;
     tex_sample16(capture, &cs, m, &lo, &hi);
     const VF k = _mm512_set1_ps(1.0f / 256.0f);
     VF r = _mm512_mul_ps(field_lo(lo), k), g = _mm512_mul_ps(field_lo(hi), k), b = _mm512_mul_ps(field_hi(lo), k);

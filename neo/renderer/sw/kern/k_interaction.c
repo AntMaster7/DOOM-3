@@ -91,10 +91,7 @@ static __forceinline int light_cell_dark(const SwTriAttr *a, float xl, float yl,
 
 static __forceinline void coords_for(const SwImage *tx, const TexSet *s, __mmask16 m, TexCoords *tc)
 {
-    TexLevel L;
-    tex_level(tx, s->level, s->level0, &L);
-    if (tx->wrap == SW_WRAP_REPEAT) tex_coords_at(&L, s->u, s->v, m, SW_WRAP_REPEAT, tc);
-    else tex_coords_at(&L, s->u, s->v, m, SW_WRAP_CLAMP, tc);
+    tex_coords(tx, s, m, tc);
 }
 
 /* a 16-bit field -> float. The fetch's fields are 8.8 (texel * 256); the scale is folded into the
@@ -123,7 +120,7 @@ static KERNEL_CALL(__mmask16) k_interaction(const SwTriAttr *a, const SwInteract
     const VF rw = v_rcp(PLANE_W(a, X, Y));
     {
         TexSet fs;                                                  /* falloff at (tc2.x, 0.5), level 0: a smooth ramp */
-        fs.u = _mm512_mul_ps(PLANE(a, VI_FALLOFF, X, Y), rw); fs.v = _mm512_set1_ps(0.5f); fs.level = _mm512_setzero_si512(); fs.level0 = g_texLevel0;
+        fs.u = _mm512_mul_ps(PLANE(a, VI_FALLOFF, X, Y), rw); fs.v = _mm512_set1_ps(0.5f); fs.level = _mm512_setzero_si512(); fs.level0 = g_texLevel0; fs.two = 0;
         tex_sample16(p->falloff, &fs, m, &lo, &hi);
     }
     m = _mm512_mask_test_epi32_mask(m, _mm512_or_si512(lo, hi), _mm512_set1_epi32(-1));

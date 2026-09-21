@@ -146,7 +146,13 @@ static uint64_t *   g_tileSortKeys;
      worker's stack, when a tile starts. g_opt and g_dbgEqual are never read below job_tile. */
 static __declspec(align(64)) SwThreadStats g_stats[MAX_THREADS];
 static __declspec(align(64)) SwStats g_lastStats;
-static int          g_opt[SW_OPT_COUNT] = { 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1 };
+/* by NAME: the list was positional until a new option's 0 landed in a neighbour's slot (the harness caught it) */
+static int          g_opt[SW_OPT_COUNT] = {
+    [SW_OPT_HIER] = 1, [SW_OPT_ZRANGE] = 1, [SW_OPT_CELL_FAST] = 1, [SW_OPT_LIGHT_CELLS] = 1,
+    [SW_OPT_KERNEL_CUT] = 0, [SW_OPT_PROFILE] = 0, [SW_OPT_DEPTH_BOUNDS] = 1, [SW_OPT_SHADOW_CULL] = 1,
+    [SW_OPT_TRILINEAR] = 0, [SW_OPT_ENV_HELPERS] = 1, [SW_OPT_TEX_LEVEL0] = 1, [SW_OPT_TEX_WINDOW] = 1,
+    [SW_OPT_BIN_EXACT] = 1, [SW_OPT_CAPTURE_REGION] = 1,
+};
 static double       g_tscPerMs;                 /* measured in sw_init */
 
 /* the view's capture point (_currentRender): jobs from g_captureJob on run in a second tile phase,

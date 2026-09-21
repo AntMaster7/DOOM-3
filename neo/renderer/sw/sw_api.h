@@ -260,6 +260,8 @@ enum {
     SW_OPT_PROFILE,         /* time the tile phase by category (two rdtsc per bin); default 0 */
     SW_OPT_DEPTH_BOUNDS,    /* honour SwDraw.depthBoundsMin/Max; default 1 */
     SW_OPT_SHADOW_CULL,     /* a tile skips the shadow volumes whose counts nothing in it reads; default 1 */
+    SW_OPT_TRILINEAR,       /* GL_LINEAR_MIPMAP_LINEAR: two levels blended by the level's fraction; 0 = .._NEAREST; default 0, the glue follows image_filter */
+    SW_OPT_ENV_HELPERS,     /* bumpyEnvironment: the normal map is fetched for lanes outside the mask too, because the cube level reads them; default 1 */
     SW_OPT_TEX_LEVEL0,      /* a block proven to read level 0 everywhere skips the level rule and the per-lane level tables (exact); default 1 */
     SW_OPT_TEX_WINDOW,      /* a block whose texels lie in a 16 x 5 window of one level fetches them with row loads, not gathers (exact); default 1 */
     SW_OPT_BIN_EXACT,       /* a triangle goes only into the tiles it can cover, not into all of its bounding box (exact); default 1 */

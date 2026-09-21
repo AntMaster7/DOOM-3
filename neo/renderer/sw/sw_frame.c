@@ -378,6 +378,8 @@ static void frame_tiles(void)
 
     g_texWindow = g_opt[SW_OPT_TEX_WINDOW];
     g_texLevel0 = g_opt[SW_OPT_TEX_LEVEL0];
+    g_envHelpers = g_opt[SW_OPT_ENV_HELPERS];
+    g_texTrilinear = g_opt[SW_OPT_TRILINEAR];
     const double t1 = now_ms();
     tiles_sort_by_cost();                                   /* serial: keep it cheap */
     const double t1b = now_ms();

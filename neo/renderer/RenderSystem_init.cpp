@@ -661,6 +661,11 @@ void R_InitOpenGL( void ) {
 		r_multiSamples.SetInteger( 0 );
 	}
 
+#ifdef ID_SW_RENDERER
+	// the window exists at its full size; from here on the engine renders to the scaled one
+	SW_ApplyRenderScale( &glConfig.vidWidth, &glConfig.vidHeight );
+#endif
+
 	// input and sound systems need to be tied to the new window
 	Sys_InitInput();
 	soundSystem->InitHW();
@@ -1366,6 +1371,37 @@ screenshot [width] [height] [samples]
 ================== 
 */ 
 #define	MAX_BLENDS	256	// to keep the accumulation in shorts
+/*
+==================
+R_MarkPose_f
+
+markPose [note]: appends the map, the eye position and the view angles of the last primary view
+to poses.txt in the save path, in the form tools\pose-census.ps1 takes (setviewpos wants the eye
+position and the yaw). Bind it to a key and press it wherever the frame rate hurts.
+==================
+*/
+void R_MarkPose_f( const idCmdArgs &args ) {
+	if ( !tr.primaryWorld ) {
+		common->Printf( "markPose: no map is being rendered\n" );
+		return;
+	}
+	const renderView_t &v = tr.primaryRenderView;
+	const idAngles angles = v.viewaxis.ToAngles();
+	idStr map = tr.primaryWorld->mapName;
+	map.StripFileExtension();
+	map.StripLeading( "maps/" );
+	const idStr line = va( "%s | %.1f %.1f %.1f %.1f | pitch %.1f | %ix%i | %s\n", map.c_str(), v.vieworg.x, v.vieworg.y, v.vieworg.z,
+		angles.yaw, angles.pitch, glConfig.vidWidth, glConfig.vidHeight, args.Argc() > 1 ? args.Args() : "" );
+	idFile *f = fileSystem->OpenFileAppend( "poses.txt", true, "fs_savepath" );		// NOT the default, fs_basepath: that is the game's own directory
+	if ( !f ) {
+		common->Printf( "markPose: cannot write poses.txt\n" );
+		return;
+	}
+	f->Write( line.c_str(), line.Length() );
+	fileSystem->CloseFile( f );
+	common->Printf( "marked: %s", line.c_str() );
+}
+
 void R_ScreenShot_f( const idCmdArgs &args ) {
 	static int lastNumber = 0;
 	idStr checkname;
@@ -1957,6 +1993,12 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 		parms.displayHz = r_displayRefresh.GetInteger();
 		parms.multiSamples = r_multiSamples.GetInteger();
 		parms.stereo = false;
+#ifdef ID_SW_RENDERER
+		if ( SW_GLFree() ) {
+			// glConfig holds the RENDER size (r_swRenderScale); the window wants the mode's
+			R_GetModeInfo( &parms.width, &parms.height, r_mode.GetInteger() );
+		}
+#endif
 		GLimp_SetScreenParms( parms );
 	}
 
@@ -2076,6 +2118,7 @@ void R_InitCommands( void ) {
 	cmdSystem->AddCommand( "listGuis", R_ListGuis_f, CMD_FL_RENDERER, "lists guis" );
 	cmdSystem->AddCommand( "touchGui", R_TouchGui_f, CMD_FL_RENDERER, "touches a gui" );
 	cmdSystem->AddCommand( "screenshot", R_ScreenShot_f, CMD_FL_RENDERER, "takes a screenshot" );
+	cmdSystem->AddCommand( "markPose", R_MarkPose_f, CMD_FL_RENDERER, "appends map, eye position, yaw and pitch of the current view to poses.txt in the save path (for tools\\pose-census.ps1)" );
 	cmdSystem->AddCommand( "envshot", R_EnvShot_f, CMD_FL_RENDERER, "takes an environment shot" );
 	cmdSystem->AddCommand( "makeAmbientMap", R_MakeAmbientMap_f, CMD_FL_RENDERER|CMD_FL_CHEAT, "makes an ambient map" );
 	cmdSystem->AddCommand( "benchmark", R_Benchmark_f, CMD_FL_RENDERER, "benchmark" );
