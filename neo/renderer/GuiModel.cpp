@@ -90,7 +90,7 @@ void idGuiModel::WriteToDemo( idDemoFile *demo ) {
 	for ( j = 0 ; j < i ; j++ ) {
 		guiModelSurface_t	*surf = &surfaces[j];
 		
-		demo->WriteInt( (int&)surf->material );
+		demo->WritePtrFlag( surf->material );
 		demo->WriteFloat( surf->color[0] );
 		demo->WriteFloat( surf->color[1] );
 		demo->WriteFloat( surf->color[2] );
@@ -140,7 +140,7 @@ void idGuiModel::ReadFromDemo( idDemoFile *demo ) {
 	for ( j = 0 ; j < i ; j++ ) {
 		guiModelSurface_t	*surf = &surfaces[j];
 		
-		demo->ReadInt( (int&)surf->material );
+		demo->ReadPtrFlag( surf->material );
 		demo->ReadFloat( surf->color[0] );
 		demo->ReadFloat( surf->color[1] );
 		demo->ReadFloat( surf->color[2] );

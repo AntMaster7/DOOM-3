@@ -845,6 +845,9 @@
     <ClCompile Include="renderer\tr_backend.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
+    <ClCompile Include="renderer\tr_census.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
     <ClCompile Include="renderer\tr_deform.cpp">
       <Filter>Renderer</Filter>
     </ClCompile>
@@ -1137,6 +1140,9 @@
       <Filter>Sys</Filter>
     </ClCompile>
     <ClCompile Include="sys\win32\win_input.cpp">
+      <Filter>Sys</Filter>
+    </ClCompile>
+    <ClCompile Include="sys\win32\win_crash.cpp">
       <Filter>Sys</Filter>
     </ClCompile>
     <ClCompile Include="sys\win32\win_main.cpp">

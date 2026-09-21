@@ -44,6 +44,13 @@ idCVar	idSessionLocal::com_aviDemoTics( "com_aviDemoTics", "2", CVAR_SYSTEM | CV
 idCVar	idSessionLocal::com_wipeSeconds( "com_wipeSeconds", "1", CVAR_SYSTEM, "" );
 idCVar	idSessionLocal::com_guid( "com_guid", "", CVAR_SYSTEM | CVAR_ARCHIVE | CVAR_ROM, "" );
 
+// frame captures shared by every back end: the same demo frames through the same screenshot path
+static idCVar com_demoShotFrames( "com_demoShotFrames", "", CVAR_SYSTEM, "space separated demo frame numbers to write as demoshots/<demo>_<tag>_<width>x<height>_f<frame>.tga during demo playback" );
+static idCVar com_demoShotCompare( "com_demoShotCompare", "0", CVAR_SYSTEM | CVAR_BOOL, "com_demoShotFrames: write each frame as rendered by GL AND by the software renderer (swCompareShot), print the difference" );
+static idCVar com_demoShotCommand( "com_demoShotCommand", "", CVAR_SYSTEM, "with com_demoShotCompare: a console command to run at each listed demo frame" );
+static idCVar com_demoShotLightScan( "com_demoShotLightScan", "0", CVAR_SYSTEM | CVAR_INTEGER, "with com_demoShotCompare: after each compared frame, compare it again with r_singleLight 0 .. N-1, one line per light" );
+static idCVar com_demoShotTag( "com_demoShotTag", "gl", CVAR_SYSTEM, "renderer tag in the file names written by com_demoShotFrames" );
+
 idSessionLocal		sessLocal;
 idSession			*session = &sessLocal;
 
@@ -664,7 +671,9 @@ Session_TimeDemoQuit_f
 ================
 */
 static void Session_TimeDemoQuit_f( const idCmdArgs &args ) {
-	sessLocal.TimeRenderDemo( va( "demos/%s", args.Argv(1) ) );
+	// a second argument runs the demo once untimed first, as timeDemo does: the timed pass then
+	// has every image and model loaded
+	sessLocal.TimeRenderDemo( va( "demos/%s", args.Argv(1) ), ( args.Argc() > 2 ) );
 	if ( sessLocal.timeDemo == TD_YES ) {
 		// this allows hardware vendors to automate some testing
 		sessLocal.timeDemo = TD_YES_THEN_QUIT;
@@ -2553,6 +2562,60 @@ void idSessionLocal::Frame() {
 
 		// this will call Draw, possibly multiple times if com_aviDemoSamples is > 1
 		renderSystem->TakeScreenshot( com_aviDemoWidth.GetInteger(), com_aviDemoHeight.GetInteger(), name, com_aviDemoSamples.GetInteger(), NULL );
+	}
+
+	// write the listed demo frames; this redraws the demo frame that was just shown
+	if ( readDemo && com_demoShotFrames.GetString()[0] ) {
+		static int lastShotFrame = -1;
+		idCmdArgs frames;
+		frames.TokenizeString( com_demoShotFrames.GetString(), false );
+		for ( int i = 0; i < frames.Argc(); i++ ) {
+			if ( atoi( frames.Argv( i ) ) != numDemoFrames || numDemoFrames == lastShotFrame ) {
+				continue;
+			}
+			lastShotFrame = numDemoFrames;
+
+			idStr demoName = readDemo->GetName();
+			demoName.StripPath();
+			demoName.StripFileExtension();
+			idStr name = va( "demoshots/%s_%s_%ix%i_f%05i.tga", demoName.c_str(), com_demoShotTag.GetString(),
+							renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight(), numDemoFrames );
+
+			console->ClearNotifyLines();
+			if ( com_demoShotCompare.GetBool() ) {
+				// the redraw of this demo frame goes through both back ends
+				common->Printf( "demo frame %i: ", numDemoFrames );
+				cmdSystem->BufferCommandText( CMD_EXEC_NOW, va( "swCompareShot \"demoshots/%s_cmp_f%05i\"\n", demoName.c_str(), numDemoFrames ) );
+				UpdateScreen();
+				// com_demoShotLightScan N: the same demo frame again with one light at a time (r_singleLight 0..N-1).
+				// One line per light: the light whose line reads worse than the rest is the one the back ends disagree on.
+				const int scan = cvarSystem->GetCVarInteger( "com_demoShotLightScan" );
+				// com_demoShotCommand: a console command run AT this demo frame (the world is what the frame shows:
+				// listRenderLightDefs, listRenderEntityDefs ..)
+				const char *atFrame = cvarSystem->GetCVarString( "com_demoShotCommand" );
+				if ( atFrame[0] ) {
+					cmdSystem->BufferCommandText( CMD_EXEC_NOW, va( "%s\n", atFrame ) );
+				}
+				if ( scan > 0 ) {
+					// numbers only (r_swCompare 4 prints, writes nothing): two 6 MB images per light would be gigabytes
+					const int oldCompare = cvarSystem->GetCVarInteger( "r_swCompare" );
+					cvarSystem->SetCVarInteger( "r_swCompare", 4 );
+					cvarSystem->SetCVarInteger( "r_swComparePrint", 1 );
+					for ( int light = 0; light < scan; light++ ) {
+						cvarSystem->SetCVarInteger( "r_singleLight", light );
+						common->Printf( "light %i: ", light );
+						UpdateScreen();
+					}
+					cvarSystem->SetCVarInteger( "r_singleLight", -1 );
+					cvarSystem->SetCVarInteger( "r_swComparePrint", 0 );
+					cvarSystem->SetCVarInteger( "r_swCompare", oldCompare );
+				}
+				break;
+			}
+			renderSystem->TakeScreenshot( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight(), name, 1, NULL );
+			common->Printf( "wrote %s\n", name.c_str() );
+			break;
+		}
 	}
 
 	// at startup, we may be backwards

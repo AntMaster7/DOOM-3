@@ -69,6 +69,14 @@ void R_ListRenderLightDefs_f( const idCmdArgs &args ) {
 		totalRef += rCount;
 
 		common->Printf( "%4i: %3i intr %2i refs %s\n", i, iCount, rCount, ldef->lightShader->GetName());
+		// what tells one light from another when a back end gets it wrong
+		common->Printf( "      %s%s%s%s origin %.0f %.0f %.0f radius %.0f %.0f %.0f colour %.2f %.2f %.2f %.2f stages %i falloff %s\n",
+			ldef->parms.pointLight ? "point" : "projected", ldef->parms.parallel ? " parallel" : "",
+			ldef->parms.noShadows ? " noShadows" : "", ldef->lightShader->IsAmbientLight() ? " ambient" : "",
+			ldef->parms.origin[0], ldef->parms.origin[1], ldef->parms.origin[2],
+			ldef->parms.lightRadius[0], ldef->parms.lightRadius[1], ldef->parms.lightRadius[2],
+			ldef->parms.shaderParms[0], ldef->parms.shaderParms[1], ldef->parms.shaderParms[2], ldef->parms.shaderParms[3],
+			ldef->lightShader->GetNumStages(), ldef->falloffImage ? ldef->falloffImage->imgName.c_str() : "(none)" );
 		active++;
 	}
 
@@ -697,6 +705,7 @@ void idRenderWorldLocal::RenderScene( const renderView_t *renderView ) {
 	tr.guiModel->Clear();
 
 	int startTime = Sys_Milliseconds();
+	const double startTicks = Sys_GetClockTicks();
 
 	// setup view parms for the initial view
 	//
@@ -777,6 +786,7 @@ void idRenderWorldLocal::RenderScene( const renderView_t *renderView ) {
 	int endTime = Sys_Milliseconds();
 
 	tr.pc.frontEndMsec += endTime - startTime;
+	R_CensusAddFrontEndTicks( Sys_GetClockTicks() - startTicks );
 
 	// prepare for any 2D drawing after this
 	tr.guiModel->Clear();

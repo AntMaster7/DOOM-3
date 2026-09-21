@@ -138,6 +138,9 @@ PFNWGLSETPBUFFERATTRIBARBPROC	wglSetPbufferAttribARB;
 //
 bool QGL_Init( const char *dllname );
 void     QGL_Shutdown( void );
+#ifdef ID_SW_RENDERER
+bool QGL_InitNull( void );		// win_qgl_null.inl: r_swRenderer 2
+#endif
 
 
 
@@ -221,7 +224,7 @@ FakeWndProc
 Only used to get wglExtensions
 ====================
 */
-LONG WINAPI FakeWndProc (
+LRESULT CALLBACK FakeWndProc (
     HWND    hWnd,
     UINT    uMsg,
     WPARAM  wParam,
@@ -627,6 +630,15 @@ static bool GLW_CreateWindow( glimpParms_t parms ) {
 	UpdateWindow( win32.hWnd );
 	common->Printf( "...created window @ %d,%d (%dx%d)\n", x, y, w, h );
 
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		// the presenter attaches its swap chain to the window; the DC is only for the gamma ramp
+		win32.hDC = GetDC( win32.hWnd );
+		glConfig.colorBits = 32;
+		glConfig.depthBits = 24;		// what the front end believes; the rasterizer's depth is float32
+		glConfig.stencilBits = 8;
+	} else
+#endif
 	if ( !GLW_InitDriver( parms ) ) {
 		ShowWindow( win32.hWnd, SW_HIDE );
 		DestroyWindow( win32.hWnd );
@@ -823,6 +835,20 @@ bool GLimp_Init( glimpParms_t parms ) {
 	// dlls.  Normal users should never have to use it, and it is
 	// not archived.
 	driverName = r_glDriver.GetString()[0] ? r_glDriver.GetString() : "opengl32";
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		QGL_InitNull();
+		if ( parms.fullScreen && !GLW_SetFullScreen( parms ) ) {
+			GLimp_Shutdown();
+			return false;
+		}
+		if ( !GLW_CreateWindow( parms ) ) {
+			GLimp_Shutdown();
+			return false;
+		}
+		return true;
+	}
+#endif
 	if ( !QGL_Init( driverName ) ) {
 		common->Printf( "^3GLimp_Init() could not load r_glDriver \"%s\"^0\n", driverName );
 		return false;
@@ -949,6 +975,11 @@ void GLimp_Shutdown( void ) {
 	common->Printf( "Shutting down OpenGL subsystem\n" );
 
 	// set current context to NULL
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		// no context was made
+	} else
+#endif
 	if ( qwglMakeCurrent ) {
 		retVal = qwglMakeCurrent( NULL, NULL ) != 0;
 		common->Printf( "...wglMakeCurrent( NULL, NULL ): %s\n", success[retVal] );
@@ -1004,6 +1035,11 @@ GLimp_SwapBuffers
 =====================
 */
 void GLimp_SwapBuffers( void ) {
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		return;		// the software presenter owns the window
+	}
+#endif
 	//
 	// wglSwapinterval is a windows-private extension,
 	// so we must check for it here instead of portably

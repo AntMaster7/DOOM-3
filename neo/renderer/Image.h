@@ -214,6 +214,7 @@ public:
 	// data commonly accessed is grouped here
 	static const int TEXTURE_NOT_LOADED = -1;
 	GLuint				texnum;					// gl texture binding, will be TEXTURE_NOT_LOADED if not loaded
+	struct SwImage *	swImage;				// the software renderer's copy (renderer/sw/sw_image.cpp), NULL if none
 	textureType_t		type;
 	int					frameUsed;				// for texture usage in frame statistics
 	int					bindCount;				// incremented each bind
@@ -258,6 +259,7 @@ public:
 
 ID_INLINE idImage::idImage() {
 	texnum = TEXTURE_NOT_LOADED;
+	swImage = NULL;
 	partialImage = NULL;
 	type = TT_DISABLED;
 	isPartialImage = false;

@@ -665,6 +665,7 @@ address_t GetFuncAddr( address_t midPtPtr ) {
 GetCallerAddr
 ==================
 */
+#ifndef _WIN64	// walks x86 frame pointers
 address_t GetCallerAddr( long _ebp ) {
 	long midPtPtr;
 	long res = 0;
@@ -683,6 +684,7 @@ address_t GetCallerAddr( long _ebp ) {
 label:
 	return res;
 }
+#endif
 
 /*
 ==================
@@ -692,7 +694,14 @@ Sys_GetCallStack
 ==================
 */
 void Sys_GetCallStack( address_t *callStack, const int callStackSize ) {
-#if 1 //def _DEBUG
+#if defined( _WIN64 )
+	// x64 has no frame-pointer chain to follow; the unwinder does it (skip this function and its caller)
+	void *frames[ 64 ];
+	int i = (int)CaptureStackBackTrace( 2, callStackSize < 64 ? callStackSize : 64, frames, NULL );
+	for ( int j = 0; j < i; j++ ) {
+		callStack[j] = (address_t)frames[j];
+	}
+#elif 1 //def _DEBUG
 	int i;
 	long m_ebp;
 

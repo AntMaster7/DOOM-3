@@ -141,8 +141,17 @@ static void R_IssueRenderCommands( void ) {
 
 	// r_skipRender is usually more usefull, because it will still
 	// draw 2D graphics
+	R_CensusCommands( frameData->cmdHead );
+
 	if ( !r_skipBackEnd.GetBool() ) {
+		const double start = Sys_GetClockTicks();
+#ifdef ID_SW_RENDERER
+		if ( SW_Active() ) {
+			SW_RunFrame( frameData->cmdHead );		// software, GL, or both (r_swCompare)
+		} else
+#endif
 		RB_ExecuteBackEndCommands( frameData->cmdHead );
+		R_CensusAddBackEndTicks( Sys_GetClockTicks() - start );
 	}
 
 	R_ClearCommandChain();
@@ -740,6 +749,9 @@ void idRenderSystemLocal::EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	// start the back end up again with the new command list
 	R_IssueRenderCommands();
 
+	// r_frameLog row for this frame
+	R_CensusEndFrame();
+
 	// use the other buffers next frame, because another CPU
 	// may still be rendering into the current buffers
 	R_ToggleSmpFrame();
@@ -960,13 +972,21 @@ void idRenderSystemLocal::CaptureRenderToFile( const char *fileName, bool fixAlp
 	guiModel->Clear();
 	R_IssueRenderCommands();
 
-	qglReadBuffer( GL_BACK );
-
 	// include extra space for OpenGL padding to word boundaries
 	int	c = ( rc->width + 3 ) * rc->height;
 	byte *data = (byte *)R_StaticAlloc( c * 3 );
-	
-	qglReadPixels( rc->x, rc->y, rc->width, rc->height, GL_RGB, GL_UNSIGNED_BYTE, data ); 
+
+#ifdef ID_SW_RENDERER
+	if ( SW_Presenting() ) {
+		// the commands just issued went into the software frame, not into GL's back buffer
+		// (a savegame's preview picture comes through here)
+		SW_ReadPixels( rc->x, rc->y, rc->width, rc->height, data );
+	} else
+#endif
+	{
+		qglReadBuffer( GL_BACK );
+		qglReadPixels( rc->x, rc->y, rc->width, rc->height, GL_RGB, GL_UNSIGNED_BYTE, data );
+	}
 
 	byte *data2 = (byte *)R_StaticAlloc( c * 4 );
 

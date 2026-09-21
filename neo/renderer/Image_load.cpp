@@ -656,6 +656,19 @@ void idImage::GenerateImage( const byte *pic, int width, int height,
 			scaledBuffer[ i ] = 0;
 		}
 	}
+#ifdef ID_SW_RENDERER
+	if ( SW_Active() ) {
+		SW_ImageGenerate2D( this, scaledBuffer, scaled_width, scaled_height, preserveBorder );
+	}
+	if ( SW_GLFree() ) {
+		// the twin IS the image; texnum (from qglGenTextures' stand-in) says "loaded"
+		if ( scaledBuffer != 0 ) {
+			R_StaticFree( scaledBuffer );
+		}
+		return;
+	}
+#endif
+
 	// upload the main image level
 	Bind();
 
@@ -904,6 +917,15 @@ void idImage::GenerateCubeImage( const byte *pic[6], int size,
 
 	uploadHeight = scaled_height;
 	uploadWidth = scaled_width;
+
+#ifdef ID_SW_RENDERER
+	if ( SW_Active() ) {
+		SW_ImageGenerateCube( this, pic, size );
+	}
+	if ( SW_GLFree() ) {
+		return;
+	}
+#endif
 
 	Bind();
 
@@ -1338,6 +1360,13 @@ bool idImage::CheckPrecompressedImage( bool fullLoad ) {
 		return false;
 	}
 
+#ifdef ID_SW_RENDERER
+	// the software renderer needs the texels: only the TGA path has them on the CPU
+	if ( SW_Active() ) {
+		return false;
+	}
+#endif
+
 #if 1 // ( _D3XP had disabled ) - Allow grabbing of DDS's from original Doom pak files
 	// if we are doing a copyFiles, make sure the original images are referenced
 	if ( fileSystem->PerformingCopyFiles() ) {
@@ -1671,8 +1700,16 @@ PurgeImage
 ===============
 */
 void idImage::PurgeImage() {
+#ifdef ID_SW_RENDERER
+	SW_ImagePurge( this );
+#endif
 	if ( texnum != TEXTURE_NOT_LOADED ) {
 		// sometimes is NULL when exiting with an error
+#ifdef ID_SW_RENDERER
+		if ( SW_GLFree() ) {
+			// nothing was created
+		} else
+#endif
 		if ( qglDeleteTextures ) {
 			qglDeleteTextures( 1, &texnum );	// this should be the ONLY place it is ever called!
 		}
@@ -1851,6 +1888,13 @@ CopyFramebuffer
 ====================
 */
 void idImage::CopyFramebuffer( int x, int y, int imageWidth, int imageHeight, bool useOversizedBuffer ) {
+#ifdef ID_SW_RENDERER
+	// the software back end is executing: the frame to copy is its own
+	if ( SW_Executing() ) {
+		SW_ImageCopyFramebuffer( this, x, y, imageWidth, imageHeight );
+		return;
+	}
+#endif
 	Bind();
 
 	if ( cvarSystem->GetCVarBool( "g_lowresFullscreenFX" ) ) {
@@ -1966,6 +2010,15 @@ if rows = cols * 6, assume it is a cube map animation
 */
 void idImage::UploadScratch( const byte *data, int cols, int rows ) {
 	int			i;
+
+#ifdef ID_SW_RENDERER
+	if ( SW_Active() ) {
+		SW_ImageUploadScratch( this, data, cols, rows );
+	}
+	if ( SW_GLFree() ) {
+		return;
+	}
+#endif
 
 	// if rows = cols * 6, assume it is a cube map animation
 	if ( rows == cols * 6 ) {

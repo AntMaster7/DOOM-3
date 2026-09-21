@@ -538,7 +538,7 @@ void idInterpreter::EnterObjectFunction( idEntity *self, const function_t *func,
 		PopParms( popParms );
 		popParms = 0;
 	}
-	Push( self->entityNumber + 1 );
+	PushEntity( self->entityNumber + 1 );
 	EnterFunction( func, false );
 }
 
@@ -686,7 +686,7 @@ void idInterpreter::CallEvent( const function_t *func, int argsize ) {
 	varEval_t			var;
 	int 				pos;
 	int 				start;
-	int					data[ D_EVENT_MAXARGS ];
+	intptr_t			data[ D_EVENT_MAXARGS ];
 	const idEventDef	*evdef;
 	const char			*format;
 
@@ -857,7 +857,7 @@ void idInterpreter::CallSysEvent( const function_t *func, int argsize ) {
 	varEval_t			source;
 	int 				pos;
 	int 				start;
-	int					data[ D_EVENT_MAXARGS ];
+	intptr_t			data[ D_EVENT_MAXARGS ];
 	const idEventDef	*evdef;
 	const char			*format;
 
@@ -1799,7 +1799,7 @@ bool idInterpreter::Execute( void ) {
 
 		case OP_PUSH_ENT:
 			var_a = GetVariable( st->a );
-			Push( *var_a.entityNumberPtr );
+			PushEntity( *var_a.entityNumberPtr );
 			break;
 
 		case OP_PUSH_S:
@@ -1815,12 +1815,12 @@ bool idInterpreter::Execute( void ) {
 
 		case OP_PUSH_OBJ:
 			var_a = GetVariable( st->a );
-			Push( *var_a.entityNumberPtr );
+			PushEntity( *var_a.entityNumberPtr );
 			break;
 
 		case OP_PUSH_OBJENT:
 			var_a = GetVariable( st->a );
-			Push( *var_a.entityNumberPtr );
+			PushEntity( *var_a.entityNumberPtr );
 			break;
 
 		case OP_BREAK:

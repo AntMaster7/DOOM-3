@@ -170,13 +170,13 @@ static void R_SpecularTableImage( idImage *image ) {
 #endif
 		int		b = (int)(f * 255);
 
-		data[x][0] = 
-		data[x][1] = 
-		data[x][2] = 
+		data[x][0] =
+		data[x][1] =
+		data[x][2] =
 		data[x][3] = b;
 	}
 
-	image->GenerateImage( (byte *)data, 256, 1, 
+	image->GenerateImage( (byte *)data, 256, 1,
 		TF_LINEAR, false, TR_CLAMP, TD_HIGH_QUALITY );
 }
 
@@ -363,6 +363,11 @@ static void R_BorderClampImage( idImage *image ) {
 		// can't call qglTexParameterfv yet
 		return;
 	}
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		return;		// the twin's border texels are zero already
+	}
+#endif
 	// explicit zero border
 	float	color[4];
 	color[0] = color[1] = color[2] = color[3] = 0;
@@ -966,6 +971,12 @@ static filterName_t textureFilters[] = {
 		textureAnisotropy = glConfig.maxTextureAnisotropy;
 	}
 	textureLODBias = image_lodbias.GetFloat();
+
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		return;		// no texture objects exist
+	}
+#endif
 
 	// change all the existing mipmap texture objects with default filtering
 

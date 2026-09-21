@@ -918,7 +918,7 @@ idScriptObject::Restore
 */
 void idScriptObject::Restore( idRestoreGame *savefile ) {
 	idStr typeName;
-	size_t size;
+	int size;		// was size_t read through (int &): half of it on x64
 
 	savefile->ReadString( typeName );
 
@@ -1310,6 +1310,12 @@ idVarDef *idProgram::AllocDef( idTypeDef *type, const char *name, idVarDef *scop
 		if ( type->Inherits( &type_object ) ) {
 			// objects only have their entity number on the stack, not the entire object
 			scope->value.functionPtr->locals += type_object.Size();
+		} else if ( !strcmp( name, RESULT_STRING ) && type->Size() < (int)sizeof( void * ) ) {
+			// The compiler turns the OP_INDIRECT_x before an assignment into OP_ADDRESS and retypes
+			// its result temporary as a pointer AFTER that temporary was allocated with the field's
+			// size. A float is as big as a pointer on x86; on x64 the 8-byte pointer ran over the
+			// next local. A result temporary therefore always has room for a pointer.
+			scope->value.functionPtr->locals += sizeof( void * );
 		} else {
 			scope->value.functionPtr->locals += type->Size();
 		}

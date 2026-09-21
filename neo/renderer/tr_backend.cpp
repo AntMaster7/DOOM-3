@@ -559,6 +559,13 @@ const void	RB_SwapBuffers( const void *data ) {
 
     RB_LogComment( "***************** RB_SwapBuffers *****************\n\n\n" );
 
+#ifdef ID_SW_RENDERER
+	// r_swCompare reads the finished GL frame from the back buffer and presents a composite itself
+	if ( SW_SuppressGLSwap() ) {
+		return;
+	}
+#endif
+
 	// don't flip if drawing to front buffer
 	if ( !r_frontBuffer.GetBool() ) {
 	    GLimp_SwapBuffers();

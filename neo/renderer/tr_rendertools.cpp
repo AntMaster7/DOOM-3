@@ -500,7 +500,9 @@ void RB_ShowLightCount( void ) {
 	qglEnable( GL_STENCIL_TEST );
 
 	// optionally count everything through walls
-	if ( r_showLightCount.GetInteger() >= 2 ) {
+	// 4 prints like 3 but counts like 1: interaction passes per VISIBLE pixel, the shading work
+	// of a back end that rejects on depth before it shades
+	if ( r_showLightCount.GetInteger() == 2 || r_showLightCount.GetInteger() == 3 ) {
 		qglStencilOp( GL_KEEP, GL_INCR, GL_INCR );
 	} else {
 		qglStencilOp( GL_KEEP, GL_KEEP, GL_INCR );

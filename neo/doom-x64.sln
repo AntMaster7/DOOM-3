@@ -1,0 +1,35 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "idlib-x64", "idlib-x64.vcxproj", "{77521977-D914-56EE-B4B7-F57856820F46}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "game-x64", "game-x64.vcxproj", "{DEF5A19B-2C32-5896-B807-5A4C35E26EEE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{77521977-D914-56EE-B4B7-F57856820F46} = {77521977-D914-56EE-B4B7-F57856820F46}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "doom3-x64", "doom3-x64.vcxproj", "{A06A2F05-CA8C-55DA-AD0D-F07B02A2432A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{77521977-D914-56EE-B4B7-F57856820F46} = {77521977-D914-56EE-B4B7-F57856820F46}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{77521977-D914-56EE-B4B7-F57856820F46}.Debug|x64.ActiveCfg = Debug|x64
+		{77521977-D914-56EE-B4B7-F57856820F46}.Debug|x64.Build.0 = Debug|x64
+		{77521977-D914-56EE-B4B7-F57856820F46}.Release|x64.ActiveCfg = Release|x64
+		{77521977-D914-56EE-B4B7-F57856820F46}.Release|x64.Build.0 = Release|x64
+		{DEF5A19B-2C32-5896-B807-5A4C35E26EEE}.Debug|x64.ActiveCfg = Debug|x64
+		{DEF5A19B-2C32-5896-B807-5A4C35E26EEE}.Debug|x64.Build.0 = Debug|x64
+		{DEF5A19B-2C32-5896-B807-5A4C35E26EEE}.Release|x64.ActiveCfg = Release|x64
+		{DEF5A19B-2C32-5896-B807-5A4C35E26EEE}.Release|x64.Build.0 = Release|x64
+		{A06A2F05-CA8C-55DA-AD0D-F07B02A2432A}.Debug|x64.ActiveCfg = Debug|x64
+		{A06A2F05-CA8C-55DA-AD0D-F07B02A2432A}.Debug|x64.Build.0 = Debug|x64
+		{A06A2F05-CA8C-55DA-AD0D-F07B02A2432A}.Release|x64.ActiveCfg = Release|x64
+		{A06A2F05-CA8C-55DA-AD0D-F07B02A2432A}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal

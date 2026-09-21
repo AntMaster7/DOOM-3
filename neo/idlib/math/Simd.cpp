@@ -30,11 +30,18 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 
 #include "Simd_Generic.h"
+// The MMX / 3DNow / SSE back ends are x86 inline assembly (1,574 sites). The x64 build runs
+// idSIMD_Generic; rewrite with intrinsics only what a profile asks for.
+#if defined( _WIN64 )
+#define ID_SIMD_GENERIC_ONLY
+#endif
+#ifndef ID_SIMD_GENERIC_ONLY
 #include "Simd_MMX.h"
 #include "Simd_3DNow.h"
 #include "Simd_SSE.h"
 #include "Simd_SSE2.h"
 #include "Simd_SSE3.h"
+#endif
 #include "Simd_AltiVec.h"
 
 
@@ -73,6 +80,9 @@ void idSIMD::InitProcessor( const char *module, bool forceGeneric ) {
 	} else {
 
 		if ( !processor ) {
+#ifdef ID_SIMD_GENERIC_ONLY
+			processor = generic;
+#else
 			if ( ( cpuid & CPUID_ALTIVEC ) ) {
 				processor = new idSIMD_AltiVec;
 			} else if ( ( cpuid & CPUID_MMX ) && ( cpuid & CPUID_SSE ) && ( cpuid & CPUID_SSE2 ) && ( cpuid & CPUID_SSE3 ) ) {
@@ -88,6 +98,7 @@ void idSIMD::InitProcessor( const char *module, bool forceGeneric ) {
 			} else {
 				processor = generic;
 			}
+#endif
 			processor->cpuid = cpuid;
 		}
 
@@ -141,7 +152,14 @@ idSIMDProcessor *p_simd;
 idSIMDProcessor *p_generic;
 long baseClocks = 0;
 
-#ifdef _WIN32
+#if defined( _WIN64 )
+
+#include <intrin.h>
+#define TIME_TYPE int
+#define StartRecordTime( start )	start = (int)__rdtsc();
+#define StopRecordTime( end )		end = (int)__rdtsc();
+
+#elif defined( _WIN32 )
 
 #define TIME_TYPE int
 
@@ -4114,6 +4132,10 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 
 		argString.Replace( " ", "" );
 
+#ifdef ID_SIMD_GENERIC_ONLY
+		common->Printf( "this build has the generic SIMD processor only\n" );
+		return;
+#else
 		if ( idStr::Icmp( argString, "MMX" ) == 0 ) {
 			if ( !( cpuid & CPUID_MMX ) ) {
 				common->Printf( "CPU does not support MMX\n" );
@@ -4154,6 +4176,7 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 			common->Printf( "invalid argument, use: MMX, 3DNow, SSE, SSE2, SSE3, AltiVec\n" );
 			return;
 		}
+#endif
 	}
 
 	idLib::common->SetRefreshOnPrint( true );

@@ -397,6 +397,14 @@ void R_LoadARBProgram( int progIndex ) {
 		// allocate a new identifier for this program
 		progs[progIndex].ident = PROG_USER + progIndex;
 	}
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		// the programs are kernels here, found by file name through the identifier just given
+		// (R_ARBProgramName); the file was still read, so fs_copyfiles keeps working
+		common->Printf( "\n" );
+		return;
+	}
+#endif
 
 	// vertex and fragment programs can both be present in a single file, so
 	// scan for the proper header to be the start point, and stamp a 0 in after the end
@@ -496,6 +504,24 @@ int R_FindARBProgram( GLenum target, const char *program ) {
 
 	return progs[i].ident;
 }
+
+#ifdef ID_SW_RENDERER
+/*
+==================
+R_ARBProgramName
+
+The software renderer has a kernel per shipped program and finds it by the file name.
+==================
+*/
+const char *R_ARBProgramName( int ident ) {
+	for ( int i = 0 ; i < MAX_GLPROGS && progs[i].name[0] ; i++ ) {
+		if ( progs[i].ident == ident ) {
+			return progs[i].name;
+		}
+	}
+	return "";
+}
+#endif
 
 /*
 ==================

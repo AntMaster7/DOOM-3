@@ -97,7 +97,7 @@ void Sys_CreateThread(  xthread_t function, void *parms, xthreadPriority priorit
 									parms,	// LPVOID lpvThreadParm,
 									0,		//   DWORD fdwCreate,
 									&info.threadId);
-	info.threadHandle = (int) temp;
+	info.threadHandle = (intptr_t) temp;
 	if (priority == THREAD_HIGHEST) {
 		SetThreadPriority( (HANDLE)info.threadHandle, THREAD_PRIORITY_HIGHEST );		//  we better sleep enough to do this
 	} else if (priority == THREAD_ABOVE_NORMAL ) {
@@ -542,7 +542,7 @@ Sys_ListFiles
 int Sys_ListFiles( const char *directory, const char *extension, idStrList &list ) {
 	idStr		search;
 	struct _finddata_t findinfo;
-	int			findhandle;
+	intptr_t	findhandle;		// _findfirst returns a pointer-sized handle
 	int			flag;
 
 	if ( !extension) {
@@ -655,7 +655,7 @@ DLL Loading
 Sys_DLL_Load
 =====================
 */
-int Sys_DLL_Load( const char *dllName ) {
+intptr_t Sys_DLL_Load( const char *dllName ) {
 	HINSTANCE	libHandle;
 	libHandle = LoadLibrary( dllName );
 	if ( libHandle ) {
@@ -664,11 +664,11 @@ int Sys_DLL_Load( const char *dllName ) {
 		GetModuleFileName( libHandle, loadedPath, sizeof( loadedPath ) - 1 );
 		if ( idStr::IcmpPath( dllName, loadedPath ) ) {
 			Sys_Printf( "ERROR: LoadLibrary '%s' wants to load '%s'\n", dllName, loadedPath );
-			Sys_DLL_Unload( (int)libHandle );
+			Sys_DLL_Unload( (intptr_t)libHandle );
 			return 0;
 		}
 	}
-	return (int)libHandle;
+	return (intptr_t)libHandle;
 }
 
 /*
@@ -676,7 +676,7 @@ int Sys_DLL_Load( const char *dllName ) {
 Sys_DLL_GetProcAddress
 =====================
 */
-void *Sys_DLL_GetProcAddress( int dllHandle, const char *procName ) {
+void *Sys_DLL_GetProcAddress( intptr_t dllHandle, const char *procName ) {
 	return GetProcAddress( (HINSTANCE)dllHandle, procName ); 
 }
 
@@ -685,7 +685,7 @@ void *Sys_DLL_GetProcAddress( int dllHandle, const char *procName ) {
 Sys_DLL_Unload
 =====================
 */
-void Sys_DLL_Unload( int dllHandle ) {
+void Sys_DLL_Unload( intptr_t dllHandle ) {
 	if ( !dllHandle ) {
 		return;
 	}
@@ -1167,6 +1167,8 @@ void Win_Frame( void ) {
 	}
 }
 
+#ifndef _WIN64	// the stack-clearing hack patches _chkstk with 32-bit code; nothing calls it
+
 extern "C" { void _chkstk( int size ); };
 void clrstk( void );
 
@@ -1194,6 +1196,8 @@ void HackChkStk( void ) {
 
 	TestChkStk();
 }
+
+#endif	// !_WIN64
 
 /*
 ====================
@@ -1283,6 +1287,7 @@ int Sys_FPU_PrintStateFlags( char *ptr, int ctrl, int stat, int tags, int inof, 
 _except_handler
 ====================
 */
+#ifndef _WIN64	// reads x86 register names; win_crash.cpp covers both architectures
 EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *ExceptionRecord, void * EstablisherFrame,
 												struct _CONTEXT *ContextRecord, void * DispatcherContext ) {
 
@@ -1348,6 +1353,7 @@ EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *Excepti
     // Tell the OS to restart the faulting instruction
     return ExceptionContinueExecution;
 }
+#endif	// !_WIN64
 
 #define TEST_FPU_EXCEPTIONS	/*	FPU_EXCEPTION_INVALID_OPERATION |		*/	\
 							/*	FPU_EXCEPTION_DENORMALIZED_OPERAND |	*/	\
@@ -1364,6 +1370,21 @@ WinMain
 */
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow ) {
 
+#ifdef _WIN64
+	// A pixel of r_mode is a pixel of the monitor. Unaware, Windows scales the window by the desktop's
+	// scaling factor (150%: a 1920x1080 window covers 2880x1620, blurred; a 3840x2160 one does not fit
+	// a 3840x2160 screen), and a flip-model swap chain is stretched along with it. Before any window
+	// exists. Looked up by name: the entry point is Windows 10 1703. (The Win32 build stays as it was.)
+	{
+		HMODULE user32 = GetModuleHandle( "user32.dll" );
+		typedef BOOL ( WINAPI *setContext_t )( HANDLE );
+		setContext_t setContext = user32 ? (setContext_t)GetProcAddress( user32, "SetProcessDpiAwarenessContext" ) : NULL;
+		if ( !setContext || !setContext( (HANDLE)-4 /* DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 */ ) ) {
+			SetProcessDPIAware();
+		}
+	}
+#endif
+
 	const HCURSOR hcurSave = ::SetCursor( LoadCursor( 0, IDC_WAIT ) );
 
 	Sys_SetPhysicalWorkMemory( 192 << 20, 1024 << 20 );
@@ -1379,6 +1400,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
         mov     FS:[0],ESP      // Install new EXECEPTION_REGISTRATION
     }
 #endif
+
+	// unattended runs get crash.txt instead of a silent exit
+	Sys_InstallCrashHandler();
 
 	win32.hInstance = hInstance;
 	idStr::Copynz( sys_cmdline, lpCmdLine, sizeof( sys_cmdline ) );
@@ -1512,6 +1536,7 @@ clrstk
 I tried to get the run time to call this at every function entry, but
 ====================
 */
+#ifndef _WIN64
 static int	parmBytes;
 __declspec( naked ) void clrstk( void ) {
 	// eax = bytes to add to stack
@@ -1540,6 +1565,7 @@ __declspec( naked ) void clrstk( void ) {
         ret
 	}
 }
+#endif	// !_WIN64
 
 /*
 ==================

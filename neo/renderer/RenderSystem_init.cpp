@@ -183,7 +183,7 @@ idCVar r_showLightScissors( "r_showLightScissors", "0", CVAR_RENDERER | CVAR_BOO
 idCVar r_showEntityScissors( "r_showEntityScissors", "0", CVAR_RENDERER | CVAR_BOOL, "show entity scissor rectangles" );
 idCVar r_showInteractionFrustums( "r_showInteractionFrustums", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = show a frustum for each interaction, 2 = also draw lines to light origin, 3 = also draw entity bbox", 0, 3, idCmdSystem::ArgCompletion_Integer<0,3> );
 idCVar r_showInteractionScissors( "r_showInteractionScissors", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = show screen rectangle which contains the interaction frustum, 2 = also draw construction lines", 0, 2, idCmdSystem::ArgCompletion_Integer<0,2> );
-idCVar r_showLightCount( "r_showLightCount", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = colors surfaces based on light count, 2 = also count everything through walls, 3 = also print overdraw", 0, 3, idCmdSystem::ArgCompletion_Integer<0,3> );
+idCVar r_showLightCount( "r_showLightCount", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = colors surfaces based on light count, 2 = also count everything through walls, 3 = also print overdraw, 4 = as 1 and print overdraw", 0, 4, idCmdSystem::ArgCompletion_Integer<0,4> );
 idCVar r_showViewEntitys( "r_showViewEntitys", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = displays the bounding boxes of all view models, 2 = print index numbers" );
 idCVar r_showTris( "r_showTris", "0", CVAR_RENDERER | CVAR_INTEGER, "enables wireframe rendering of the world, 1 = only draw visible ones, 2 = draw all front facing, 3 = draw all", 0, 3, idCmdSystem::ArgCompletion_Integer<0,3> );
 idCVar r_showSurfaceInfo( "r_showSurfaceInfo", "0", CVAR_RENDERER | CVAR_BOOL, "show surface material name under crosshair" );
@@ -695,6 +695,12 @@ void R_InitOpenGL( void ) {
 	cmdSystem->AddCommand( "reloadARBprograms", R_ReloadARBPrograms_f, CMD_FL_RENDERER, "reloads ARB programs" );
 	R_ReloadARBPrograms_f( idCmdArgs() );
 
+#ifdef ID_SW_RENDERER
+	// before the vertex cache (it must stay in CPU memory) and before the images reload
+	// (each one gets its software twin as it is generated)
+	SW_Init();
+#endif
+
 	// allocate the vertex array range or vertex objects
 	vertexCache.Init();
 
@@ -740,6 +746,12 @@ void GL_CheckErrors( void ) {
     int		err;
     char	s[64];
 	int		i;
+
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		return;
+	}
+#endif
 
 	// check for up to 10 errors pending
 	for ( i = 0 ; i < 10 ; i++ ) {
@@ -1186,8 +1198,15 @@ void R_ReadTiledPixels( int width, int height, byte *buffer, renderView_t *ref =
 				h = height - yo;
 			}
 
-			qglReadBuffer( GL_FRONT );
-			qglReadPixels( 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, temp ); 
+#ifdef ID_SW_RENDERER
+			if ( SW_Presenting() ) {
+				SW_ReadPixels( 0, 0, w, h, temp );		// the frame itself, not what GL made of it
+			} else
+#endif
+			{
+				qglReadBuffer( GL_FRONT );
+				qglReadPixels( 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, temp );
+			} 
 
 			int	row = ( w * 3 + 3 ) & ~3;		// OpenGL pads to dword boundaries
 
@@ -1951,7 +1970,11 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 	R_RegenerateWorld_f( idCmdArgs() );
 
 	// check for problems
+#ifdef ID_SW_RENDERER
+	err = SW_GLFree() ? GL_NO_ERROR : qglGetError();
+#else
 	err = qglGetError();
+#endif
 	if ( err != GL_NO_ERROR ) {
 		common->Printf( "glGetError() = 0x%x\n", err );
 	}
@@ -2199,6 +2222,9 @@ void idRenderSystemLocal::Shutdown( void ) {
 		logFile = 0;
 	}
 
+	// close the r_frameLog
+	R_CensusShutdown();
+
 	// free frame memory
 	R_ShutdownFrameData();
 
@@ -2254,7 +2280,11 @@ void idRenderSystemLocal::InitOpenGL( void ) {
 
 		globalImages->ReloadAllImages();
 
+#ifdef ID_SW_RENDERER
+		err = SW_GLFree() ? GL_NO_ERROR : qglGetError();
+#else
 		err = qglGetError();
+#endif
 		if ( err != GL_NO_ERROR ) {
 			common->Printf( "glGetError() = 0x%x\n", err );
 		}
@@ -2267,6 +2297,9 @@ idRenderSystemLocal::ShutdownOpenGL
 ========================
 */
 void idRenderSystemLocal::ShutdownOpenGL( void ) {
+#ifdef ID_SW_RENDERER
+	SW_Shutdown();
+#endif
 	// free the context and close the window
 	R_ShutdownFrameData();
 	GLimp_Shutdown();

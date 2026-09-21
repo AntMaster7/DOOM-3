@@ -2076,8 +2076,17 @@ GLimp_EnableLogging
 
 ==================
 */
+#ifdef ID_SW_RENDERER
+#include "win_qgl_null.inl"
+#endif
+
 void GLimp_EnableLogging( bool enable ) {
 	static bool		isEnabled;
+#ifdef ID_SW_RENDERER
+	if ( SW_GLFree() ) {
+		return;		// the log wrappers call through the dll pointers: nothing to log
+	}
+#endif
 	static int		initialFrames;
 	static char		ospath[ MAX_OSPATH ];
 

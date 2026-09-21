@@ -81,6 +81,11 @@ public:
 	
 	// Endian portable alternatives to Read(...)
 	virtual int				ReadInt( int &value );
+							// A pointer in a demo or savegame file is a 32-bit "is it set" word: the 32-bit
+							// engine wrote the raw pointer, and readers only test it for zero before they
+							// rebuild the real one. (int&)pointer would touch half of a 64-bit pointer.
+	template< class T > int	ReadPtrFlag( T *&ptr ) { int i = 0; int r = ReadInt( i ); ptr = (T *)(size_t)(unsigned int)i; return r; }
+	template< class T > int	WritePtrFlag( T *ptr ) { return WriteInt( ptr != NULL ); }
 	virtual int				ReadUnsignedInt( unsigned int &value );
 	virtual int				ReadShort( short &value );
 	virtual int				ReadUnsignedShort( unsigned short &value );

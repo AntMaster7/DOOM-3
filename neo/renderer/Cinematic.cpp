@@ -1243,8 +1243,8 @@ void idCinematicLocal::readQuadInfo( byte *qData ) {
 	half = false;
 	smootheddouble = false;
 	
-	t[0] = (0 - (unsigned int)image)+(unsigned int)image+screenDelta;
-	t[1] = (0 - ((unsigned int)image + screenDelta))+(unsigned int)image;
+	t[0] = screenDelta;			// was (0 - image) + image + screenDelta in 32-bit pointer arithmetic
+	t[1] = -screenDelta;
 
 	drawX = CIN_WIDTH;
 	drawY = CIN_HEIGHT;

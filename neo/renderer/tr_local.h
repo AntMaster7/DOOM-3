@@ -1058,6 +1058,17 @@ void R_StencilShot( void );
 
 bool R_CheckExtension( char *name );
 
+// tr_census.cpp: r_frameLog, a per-frame CSV census of the command list
+#ifdef ID_SW_RENDERER
+#include "sw/sw_local.h"
+#endif
+
+void R_CensusCommands( const emptyCommand_t *cmds );
+void R_CensusAddFrontEndTicks( double ticks );
+void R_CensusAddBackEndTicks( double ticks );
+void R_CensusEndFrame( void );
+void R_CensusShutdown( void );
+
 
 /*
 ====================================================================

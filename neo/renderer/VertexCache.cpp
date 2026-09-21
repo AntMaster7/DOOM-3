@@ -131,7 +131,7 @@ void *idVertexCache::Position( vertCache_t *buffer ) {
 		} else {
 			qglBindBufferARB( GL_ARRAY_BUFFER_ARB, buffer->vbo );
 		}
-		return (void *)buffer->offset;
+		return (void *)(intptr_t)buffer->offset;
 	}
 
 	// virtual memory is a real pointer
@@ -160,7 +160,13 @@ void idVertexCache::Init() {
 	virtualMemory = false;
 
 	// use ARB_vertex_buffer_object unless explicitly disabled
-	if( r_useVertexBuffers.GetInteger() && glConfig.ARBVertexBufferObjectAvailable ) {
+	bool useVBO = r_useVertexBuffers.GetInteger() && glConfig.ARBVertexBufferObjectAvailable;
+#ifdef ID_SW_RENDERER
+	if ( SW_Active() ) {
+		useVBO = false;		// the software rasterizer reads the vertices: Position() must be a pointer
+	}
+#endif
+	if( useVBO ) {
 		common->Printf( "using ARB_vertex_buffer_object memory\n" );
 	} else {
 		virtualMemory = true;
@@ -244,6 +250,8 @@ void idVertexCache::Alloc( void *data, int size, vertCache_t **buffer, bool inde
 			block->next->prev = block;
 			block->prev->next = block;
 
+			block->vbo = 0;		// the allocator does not clear; without this, virtual memory mode read garbage
+			block->virtMem = NULL;
 			if( !virtualMemory ) {
 				qglGenBuffersARB( 1, & block->vbo );
 			}

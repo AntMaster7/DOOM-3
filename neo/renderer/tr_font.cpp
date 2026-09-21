@@ -343,8 +343,15 @@ bool idRenderSystemLocal::RegisterFont( const char *fontName, fontInfoEx_t &font
 
 		idStr::Copynz( outFont->name, name, sizeof( outFont->name ) );
 
+		// The size of a fontImage_*.dat is a property of the FILE FORMAT, not of fontInfo_t: a glyph
+		// record is 7 ints, 4 floats, a 4-byte slot where the 32-bit tools wrote the glyph pointer, and
+		// 32 chars = 80 bytes; 256 of them, the glyph scale and name[64]. sizeof( fontInfo_t ) happens
+		// to be the same 20548 on x86; on x64 the pointer is 8 bytes (22600) and every font was
+		// rejected as "couldn't find font". The reader below is field by field, so only this test
+		// depended on the struct.
+		const int FONT_FILE_SIZE = GLYPHS_PER_FONT * ( 7 * 4 + 4 * 4 + 4 + 32 ) + 4 + 64;
 		len = fileSystem->ReadFile( name, NULL, &ftime );
-		if ( len != sizeof( fontInfo_t ) ) {
+		if ( len != FONT_FILE_SIZE ) {
 			common->Warning( "RegisterFont: couldn't find font: '%s'", name );
 			return false;
 		}

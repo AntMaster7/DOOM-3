@@ -92,7 +92,8 @@ If you have questions concerning this license or the applicable additional terms
 //#define ID_DEMO_BUILD
 
 // don't define ID_ALLOW_TOOLS when we don't want tool code in the executable.
-#if defined( _WIN32 ) && !defined( ID_DEDICATED ) && !defined( ID_DEMO_BUILD )
+// ID_NO_TOOLS: the x64 build leaves the MFC editors to the Win32 build (tools\edit_stub.cpp instead)
+#if defined( _WIN32 ) && !defined( ID_DEDICATED ) && !defined( ID_DEMO_BUILD ) && !defined( ID_NO_TOOLS )
 	#define	ID_ALLOW_TOOLS
 #endif
 
